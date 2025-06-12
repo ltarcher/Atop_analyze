@@ -1,10 +1,12 @@
 import re
+import os
 import pandas as pd
 import matplotlib.pyplot as plt
 import argparse
 from datetime import datetime
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+from pathlib import Path
 
 def parse_atop_log(file_path):
     """解析atop日志文件，提取内存和交换空间使用数据"""
@@ -49,6 +51,48 @@ def parse_atop_log(file_path):
                 })
                 
     return pd.DataFrame(data)
+
+def parse_atop_directory(directory_path):
+    """解析目录中的所有atop日志文件，并合并数据"""
+    all_data = []
+    directory = Path(directory_path)
+    
+    # 检查目录是否存在
+    if not directory.is_dir():
+        raise FileNotFoundError(f"目录 {directory_path} 不存在")
+    
+    # 获取目录中的所有文件
+    files = list(directory.glob('*'))
+    
+    if not files:
+        print(f"警告: 目录 {directory_path} 中没有找到文件")
+        return pd.DataFrame()
+    
+    # 解析每个文件
+    for file_path in files:
+        try:
+            # 尝试解析文件
+            file_data = parse_atop_log(file_path)
+            if not file_data.empty:
+                print(f"成功解析文件: {file_path.name}, 找到 {len(file_data)} 条记录")
+                all_data.append(file_data)
+            else:
+                print(f"文件 {file_path.name} 中没有找到有效数据")
+        except Exception as e:
+            print(f"解析文件 {file_path.name} 时出错: {str(e)}")
+    
+    # 如果没有找到有效数据，返回空DataFrame
+    if not all_data:
+        return pd.DataFrame()
+    
+    # 合并所有数据
+    merged_data = pd.concat(all_data, ignore_index=True)
+    
+    # 按时间戳排序
+    merged_data = merged_data.sort_values('timestamp')
+    
+    print(f"总共从 {len(all_data)} 个文件中解析出 {len(merged_data)} 条记录")
+    return merged_data
 
 def generate_report(data, output_prefix='memory_report', generate_html=False):
     """生成内存使用报告和图表"""
@@ -134,7 +178,9 @@ def generate_report(data, output_prefix='memory_report', generate_html=False):
 if __name__ == "__main__":
     # 创建命令行参数解析器
     parser = argparse.ArgumentParser(description='解析atop日志文件并生成内存使用报告')
-    parser.add_argument('--log_file', '-f', required=True, help='atop日志文件的路径')
+    input_group = parser.add_mutually_exclusive_group(required=True)
+    input_group.add_argument('--log_file', '-f', help='单个atop日志文件的路径')
+    input_group.add_argument('--dir', '-d', help='包含多个atop日志文件的目录路径')
     parser.add_argument('--output', '-o', default='memory_report',
                       help='输出文件前缀 (默认: memory_report)')
     parser.add_argument('--html', action='store_true',
@@ -144,13 +190,20 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     try:
-        data = parse_atop_log(args.log_file)
+        # 根据输入类型选择解析方法
+        if args.log_file:
+            print(f"解析单个日志文件: {args.log_file}")
+            data = parse_atop_log(args.log_file)
+        else:
+            print(f"解析目录中的所有日志文件: {args.dir}")
+            data = parse_atop_directory(args.dir)
+        
         if not data.empty:
             generate_report(data, args.output, args.html)
             print("报告生成完成！")
         else:
-            print("日志文件中没有找到有效的内存数据")
-    except FileNotFoundError:
-        print(f"错误: 文件 {args.log_file} 未找到")
+            print("没有找到有效的内存数据")
+    except FileNotFoundError as e:
+        print(f"错误: {str(e)}")
     except Exception as e:
         print(f"处理日志时发生错误: {str(e)}")
