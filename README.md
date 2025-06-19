@@ -37,20 +37,31 @@ go build atop_parser_mem.go
 
 ## 使用方法
 
+1. 先将atop日志转为txt文件，例如: cat atop_xxx.atop > atop_20250611.txt
+
 ### Go 版本
 
 ```bash
 # Windows
-atop_parser_mem.exe -f path/to/atop/logs/*.txt
+atop_parser_mem.exe -f path/to/atop/logs/atop_20250611.txt -o atop_name_prefix --html
+
+# 指定atop日志目录
+atop_parser_mem.exe -d path/to/atop/logs -o atop_name_prefix --html
 
 # Linux/Mac
-./atop_parser_mem -f path/to/atop/logs/*.txt
+./atop_parser_mem -f path/to/atop/logs/atop_20250611.txt -o atop_name_prefix --html
+
+# 指定atop日志目录
+./atop_parser_mem -d path/to/atop/logs -o atop_name_prefix --html
+
 ```
 
 ### Python 版本
 
 ```bash
-python atop_parser_mem.py -f path/to/atop/logs/*.txt
+python atop_parser_mem.py -f path/to/atop/logs/atop_20250611.txt -o atop_name_prefix --html
+
+python atop_parser_mem.py -d path/to/atop/logs -o atop_name_prefix --html
 ```
 
 ## 输入文件格式
